@@ -7,17 +7,18 @@ DX_MAX_WALK = 20
 DX_MAX_RUN = 36
 
 function _init()
-	player = create_player(64, 96)	
+	box = create_test_box(64, 64)
 end
 
 function _update()
-	player_update(player)
+	update_box(box)
 end
 
 function _draw()
 	cls()
 	map()
-	player_draw(player)
+	draw_box(box)
+	--[[
 	print("subx:      "..player.sub_x)
 	print("x:         "..player.x)
 	print("dx:        "..player.dx)
@@ -27,6 +28,23 @@ function _draw()
 	print("dy:        "..player.dy)
 	print("btn:       "..btn())
 	print("state:     "..player.state)
+	]]
+end
+
+function create_test_box(x, y)
+	return {
+		x = x,
+		y = y,
+		dx = 0,
+		dy = 0,
+	}
+end
+
+function update_box(b)
+end
+
+function draw_box(b)
+	rect(b.x, b.y, b.x+7, b.y+7, 8)
 end
 
 function create_player(x, y)
