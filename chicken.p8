@@ -7,17 +7,24 @@ DX_MAX_WALK = 20
 DX_MAX_RUN = 36
 
 function _init()
-	box = create_test_box(64, 64)
+	mouse_init()
+	mouse_x  = 0
+	mouse_y = 0
+	collision = false
 end
 
 function _update()
-	update_box(box)
+	mouse_x, mouse_y = mouse_pos()
+	collision = collide_map(mouse_x, mouse_y)
 end
 
 function _draw()
 	cls()
 	map()
-	draw_box(box)
+	rect(mouse_x, mouse_y, mouse_x+7, mouse_y+7, 7)
+	if collision then
+		print("collision", 9)
+	end
 	--[[
 	print("subx:      "..player.sub_x)
 	print("x:         "..player.x)
@@ -33,10 +40,10 @@ end
 
 function create_test_box(x, y)
 	return {
-		sub_x = x * SUB_PIXEL,
-		sub_y = y * SUB_PIXEL,
 		x = x,
 		y = y,
+		sub_x = 0,
+		sub_y = 0,
 		dx = 0,
 		dy = 0,
 	}
@@ -50,17 +57,25 @@ function update_box(b)
 
 	-- here we do collisions
 	b.sub_x += b.dx
-	b.sub_y += b.dy
-
-	b.x = b.sub_x \ SUB_PIXEL
-	b.y = b.sub_y \ SUB_PIXEL
+	local move_x = b.sub_x \ SUB_PIXEL
+	if move_x ~= 0 then
+		b.sub_x -= move_x * SUB_PIXEL
+		local sign = sgn(move_x)
+		while move_x ~= 0 do
+			if not collide_map() then
+				b.x += sign
+				move_x -= sign
+			else
+				break
+			end
+		end
+	end
 end
 
 function draw_box(b)
-	print(b.x)
-	print(b.y)
 	print(b.sub_x)
-	print(b.sub_y)
+	print(b.x)
+	print(b.dx)
 	rect(b.x, b.y, b.x+7, b.y+7, 8)
 end
 
@@ -207,11 +222,41 @@ function player_draw(p)
 end
 
 function collide(a, b)
-	if a.x1 > b.x2 then return false end
-	if b.x1 > a.x2 then return false end
-	if a.y1 > b.y2 then return false end
-	if b.y1 > a.y2 then return false end
+	if a[1] > b[3] then return false end
+	if b[1] > a[3] then return false end
+	if a[2] > b[4] then return false end
+	if b[2] > a[4] then return false end
 	return true
+end
+
+function collide_map(x, y)
+	local a = {x, y, x+7, y+7}
+	for map_x = 0, 15 do
+		for map_y = 0, 15 do
+			if fget(mget(map_x, map_y)) == 1 then
+				local b = {map_x*8, map_y*8, map_x*8 + 7, map_y*8 + 7}
+				if collide(a, b) then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+--mouse
+function mouse_init()
+ poke(0x5f2d,1)
+end
+
+function mouse_pos()
+	local x=stat(32)-1
+	local y=stat(33)-1
+	return x,y
+end
+
+function mouse_button()
+ return stat(34)
 end
 __gfx__
 00000000007777777777777777777700007777777777777777777700777777777777777777777777000000000000000000000000000000000000000000000000
@@ -247,7 +292,7 @@ __gfx__
 00000000077777700007000007777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000007070000007000000707000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __gff__
-0001010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0001010101010101010100000000000000000000000000010001000000000000000000000000000101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
