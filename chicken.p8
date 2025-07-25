@@ -7,24 +7,17 @@ DX_MAX_WALK = 20
 DX_MAX_RUN = 36
 
 function _init()
-	mouse_init()
-	mouse_x  = 0
-	mouse_y = 0
-	collision = false
+	box = create_test_box(80, 32)
 end
 
 function _update()
-	mouse_x, mouse_y = mouse_pos()
-	collision = collide_map(mouse_x, mouse_y)
+	update_box(box)
 end
 
 function _draw()
 	cls()
 	map()
-	rect(mouse_x, mouse_y, mouse_x+7, mouse_y+7, 7)
-	if collision then
-		print("collision", 9)
-	end
+	draw_box(box)
 	--[[
 	print("subx:      "..player.sub_x)
 	print("x:         "..player.x)
@@ -49,33 +42,58 @@ function create_test_box(x, y)
 	}
 end
 
-function update_box(b)
-	if btn(0) then b.dx -= 1 end
-	if btn(1) then b.dx += 1 end
-	if btn(2) then b.dy -= 1 end
-	if btn(3) then b.dy += 1 end
-
-	-- here we do collisions
-	b.sub_x += b.dx
-	local move_x = b.sub_x \ SUB_PIXEL
+function move_x(obj, dx)
+	obj.sub_x += obj.dx
+	local move_x = obj.sub_x \ SUB_PIXEL
 	if move_x ~= 0 then
-		b.sub_x -= move_x * SUB_PIXEL
+		obj.sub_x -= move_x * SUB_PIXEL
 		local sign = sgn(move_x)
 		while move_x ~= 0 do
-			if not collide_map() then
-				b.x += sign
+			if not collide_map(obj.x + sign, obj.y) then
+				obj.x += sign
 				move_x -= sign
 			else
+				obj.dx = 0
+				obj.sub_x = 0
 				break
 			end
 		end
 	end
 end
 
+function move_y(obj)
+	obj.sub_y += obj.dy
+	local move_y = obj.sub_y \ SUB_PIXEL
+	if move_y ~= 0 then
+		obj.sub_y -= move_y * SUB_PIXEL
+		local sign = sgn(move_y)
+		while move_y ~= 0 do
+			if not collide_map(obj.x, obj.y + sign) then
+				obj.y += sign
+				move_y -= sign
+			else
+				obj.dy = 0
+				obj.sub_y = 0
+				break
+			end
+		end
+	end
+end
+
+function update_box(b)
+	if btn(0) then b.dx -= 1 end
+	if btn(1) then b.dx += 1 end
+	if btn(2) then b.dy -= 1 end
+	if btn(3) then b.dy += 1 end
+
+	move_x(b)
+	move_y(b)
+end
+
 function draw_box(b)
-	print(b.sub_x)
-	print(b.x)
-	print(b.dx)
+	print("sub_x "..b.sub_x)
+	print("x     "..b.x)
+	print("dx    "..b.dx)
 	rect(b.x, b.y, b.x+7, b.y+7, 8)
 end
 
@@ -194,20 +212,6 @@ function player_update(p)
 	p.y = p.sub_y \ SUB_PIXEL
 
 	if p.airborne then
-		p.dy += 1
-		local tile_x = p.x \ 8
-		local tile_y = p.y \ 8 + 1
-		local tile_below_player = mget(tile_x, tile_y)
-		if fget(tile_below_player) == 1 then
-			local a = {x1=p.x, y1=p.y, x2=(p.x + 7), y2=(p.y + 7)}
-			local b = {x1=(tile_x * 8), y1=(tile_y * 8), x2=(tile_x * 8 + 7), y2=(tile_y * 8 + 7)}
-			if collide(a, b) then
-				p.y -= 1
-				p.sub_y = p.y * SUB_PIXEL
-				p.dy = 0
-				p.airborne = false
-			end
-		end
 	end
 
 end
