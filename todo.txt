@@ -1,0 +1,5 @@
+TODO
+- decouple animations from state
+- press down to sit
+- build test map
+- 1-way platforms

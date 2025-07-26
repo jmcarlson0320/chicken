@@ -82,23 +82,34 @@ function create_player(x, y)
 		float_timer = 0,
 		jump_buffer_timer = JUMP_BUFFER_TIME,
 		state = "idle",
+		current_animation = "standing",
 		animations = {
-			["idle"] = {
+			["standing"] = {
 				frames = {50},
 				rate = 0,
 				t = 0,
 			},
-			["walk"] = {
+			["sitting"] = {
+				frames = {52},
+				rate = 0,
+				t = 0,
+			},
+			["crawling"] = {
+				frames = {49, 52, 51, 52},
+				rate = 4,
+				t = 0,
+			},
+			["walking"] = {
 				frames = {49, 50, 51, 50},
 				rate = 4,
 				t = 0,
 			},
-			["run"] = {
+			["running"] = {
 				frames = {49, 50, 51, 50},
 				rate = 2,
 				t = 0,
 			},
-			["jump"] = {
+			["jumping"] = {
 				frames = {49, 50, 51, 50},
 				rate = 4,
 				t = 0,
@@ -110,28 +121,62 @@ function create_player(x, y)
 	return p
 end
 
-
 function player_update(p)
 	if p.jump_buffer_timer > 0 then
 		p.jump_buffer_timer -= 1
 	end
+
 	if p.state == "idle" then
+		if btn(3) then
+			p.current_animation = "sitting"
+		end
+		if not btn(3) then
+			p.current_animation = "standing"
+		end
 		if btn(0) then
 			p.target_dx = -DX_MAX_WALK
 			p.facing = "left"
+			p.current_animation = "walking"
 			p.state = "walk"
 		end
 		if btn(1) then
 			p.target_dx = DX_MAX_WALK
 			p.facing = "right"
+			p.current_animation = "walking"
 			p.state = "walk"
+		end
+		if btn(0) and btn(3) then
+			p.target_dx = -DX_MAX_WALK / 4
+			p.facing = "left"
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
+		if btn(1) and btn(3) then
+			p.target_dx = DX_MAX_WALK / 4
+			p.facing = "right"
+			p.current_animation = "sitting"
+			p.state = "crawl"
 		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
 			p.dy = -JUMP_SPEED
 			p.on_ground = false
 			p.gravity = JUMP_GRAVITY
 			p.float_timer = 20
+			p.current_animation = "jumping"
 			p.state = "jump"
+		end
+	elseif p.state == "crawl" then
+		if p.dx == p.target_dx then
+			p.current_animation = "crawling"
+		end
+		if not btn(3) then
+			p.current_animation = "walking"
+			p.state = "walk"
+		end
+		if btn() & 0x03 == 0 then
+			p.target_dx = 0
+			p.current_animation = "sitting"
+			p.state = "idle"
 		end
 	elseif p.state == "walk" then
 		-- left
@@ -148,20 +193,35 @@ function player_update(p)
 		if btn(5) and btn(0) then
 			p.target_dx = -DX_MAX_RUN
 			p.facing = "left"
+			p.current_animation = "running"
 			p.state = "run"
 		end
 		-- run right
 		if btn(5) and btn(1) then
 			p.target_dx = DX_MAX_RUN
 			p.facing = "right"
+			p.current_animation = "running"
 			p.state = "run"
 		end
+		if btn(3) and btn(0) then
+			p.target_dx = -DX_MAX_WALK / 4
+			p.facing = "left"
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
+		if btn(3) and btn(1) then
+			p.target_dx = DX_MAX_WALK / 4
+			p.facing = "right"
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
 		-- coasting
-		if btn() & 0x0F == 0 then
+		if btn() & 0x03 == 0 then
 			p.target_dx = 0
 		end
 		-- not moving
-		if (btn() & 0x0F == 0) and (p.dx == 0) then
+		if (btn() & 0x03 == 0) and (p.dx == 0) then
+			p.current_animation = "standing"
 			p.state = "idle"
 		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
@@ -169,6 +229,7 @@ function player_update(p)
 			p.on_ground = false
 			p.gravity = JUMP_GRAVITY
 			p.float_timer = 20
+			p.current_animation = "jumping"
 			p.state = "jump"
 		end
 	elseif p.state == "run" then
@@ -182,8 +243,21 @@ function player_update(p)
 			p.target_dx = DX_MAX_RUN
 			p.facing = "right"
 		end
+		if btn(3) and btn(0) then
+			p.target_dx = -DX_MAX_WALK / 4
+			p.facing = "left"
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
+		if btn(3) and btn(1) then
+			p.target_dx = DX_MAX_WALK / 4
+			p.facing = "right"
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
 		-- released run or direction
-		if (btn() & 0x0F == 0) or (not btn(5)) then
+		if (btn() & 0x03 == 0) or (not btn(5)) then
+			p.current_animation = "walking"
 			p.state = "walk"
 		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
@@ -191,6 +265,7 @@ function player_update(p)
 			p.on_ground = false
 			p.gravity = JUMP_GRAVITY
 			p.float_timer = 20
+			p.current_animation = "jumping"
 			p.state = "jump"
 		end
 	elseif p.state == "jump" then
@@ -213,8 +288,8 @@ function player_update(p)
 			p.target_dx = DX_MAX_RUN
 			p.facing = "right"
 		end
-		if btn(4) then
-			p.gravity = JUMP_GRAVITY
+		if btn() & 0x03 == 0 then
+			p.target_dx = 0
 		end
 		if not btn(4) then
 			p.gravity = FALL_GRAVITY
@@ -222,14 +297,12 @@ function player_update(p)
 		if p.float_timer <= 0 then
 			p.gravity = FALL_GRAVITY
 		end
-		if btn() & 0x0f == 0 then
-			p.target_dx = 0
-		end
 		if btnp(4) then 
 			p.jump_buffer_timer = JUMP_BUFFER_TIME
 		end
 		if p.on_ground then
 			p.gravity = WORLD_GRAVITY
+			p.current_animation = "standing"
 			p.state = "idle"
 		end
 	end
@@ -244,6 +317,7 @@ function player_update(p)
 			acc *= 2
 		end
 		p.dx += acc -- vel += acc
+
 	end
 
 	move_x(p)
@@ -259,7 +333,7 @@ function player_update(p)
 end
 
 function player_draw(p)
-	local anim = p.animations[p.state]
+	local anim = p.animations[p.current_animation]
 	local index = flr(anim.t / anim.rate % #anim.frames) + 1
 	local sprite = anim.frames[index]
 	local flip_x = p.facing == "left"
@@ -300,7 +374,6 @@ function move_y(obj)
 				if obj.dy > 0 then
 					obj.on_ground = true
 					obj.dy = 0
-					obj.sub_y = 0
 				end
 				break
 			end
@@ -372,13 +445,13 @@ __gfx__
 00000000070000000000000000000070000000000000000000000000700000000000000000000007000000000000000000000000000000000000000000000000
 00000000007777777777777777777700000000000000000000000000777777777777777777777777000000000000000000000000000000000000000000000000
 00000000000008000008080000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000808000777777000080800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000077777700700c07007777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000700c070070000700700c070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000070000700700007a07000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000700007a077777700700007a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000077777700007000007777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000007070000007000000707000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000808000777777000080800000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000077777700700c07007777770000808000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000700c070070000700700c070077777700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000070000700700007a070000700700c0700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000700007a077777700700007a070000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000777777000070000077777700700007a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000007070000007000000707000077777700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __gff__
 0001010101010101010100000000000000000000000000010001000000000000000000000000000101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
