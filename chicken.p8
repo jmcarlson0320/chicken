@@ -5,8 +5,16 @@ __lua__
 SUB_PIXEL = 8
 DX_MAX_WALK = 20
 DX_MAX_RUN = 36
+WORLD_GRAVITY = 1
+JUMP_GRAVITY = 1
+FALL_GRAVITY = 2
+JUMP_SPEED = 20
+JUMP_BUFFER_TIME = 8
 
 function _init()
+	-- disable repeat buttons
+	poke(0x5f5c,255)
+
 	player = create_player(64, 0)
 end
 
@@ -25,6 +33,9 @@ function _draw()
 	print("suby:      "..player.sub_y)
 	print("y:         "..player.y)
 	print("dy:        "..player.dy)
+	print("grav:      "..player.gravity)
+	print("flt_timer: "..player.float_timer)
+	print("jmp_b_time:"..player.jump_buffer_timer)
 	print("btn:       "..btn())
 	print("state:     "..player.state)
 end
@@ -67,8 +78,9 @@ function create_player(x, y)
 		dx = 0,
 		dy = 0,
 		target_dx = 0,
-		target_dy = 0,
-		brakes_on = false,
+		gravity = WORLD_GRAVITY,
+		float_timer = 0,
+		jump_buffer_timer = JUMP_BUFFER_TIME,
 		state = "idle",
 		animations = {
 			["idle"] = {
@@ -86,6 +98,11 @@ function create_player(x, y)
 				rate = 2,
 				t = 0,
 			},
+			["jump"] = {
+				frames = {49, 50, 51, 50},
+				rate = 4,
+				t = 0,
+			},
 		},
 		facing = "right",
 	}
@@ -93,7 +110,11 @@ function create_player(x, y)
 	return p
 end
 
+
 function player_update(p)
+	if p.jump_buffer_timer > 0 then
+		p.jump_buffer_timer -= 1
+	end
 	if p.state == "idle" then
 		if btn(0) then
 			p.target_dx = -DX_MAX_WALK
@@ -104,6 +125,13 @@ function player_update(p)
 			p.target_dx = DX_MAX_WALK
 			p.facing = "right"
 			p.state = "walk"
+		end
+		if btnp(4) or p.jump_buffer_timer > 0 then
+			p.dy = -JUMP_SPEED
+			p.on_ground = false
+			p.gravity = JUMP_GRAVITY
+			p.float_timer = 20
+			p.state = "jump"
 		end
 	elseif p.state == "walk" then
 		-- left
@@ -136,6 +164,13 @@ function player_update(p)
 		if (btn() & 0x0F == 0) and (p.dx == 0) then
 			p.state = "idle"
 		end
+		if btnp(4) or p.jump_buffer_timer > 0 then
+			p.dy = -JUMP_SPEED
+			p.on_ground = false
+			p.gravity = JUMP_GRAVITY
+			p.float_timer = 20
+			p.state = "jump"
+		end
 	elseif p.state == "run" then
 		-- run left
 		if btn(0) then
@@ -151,6 +186,52 @@ function player_update(p)
 		if (btn() & 0x0F == 0) or (not btn(5)) then
 			p.state = "walk"
 		end
+		if btnp(4) or p.jump_buffer_timer > 0 then
+			p.dy = -JUMP_SPEED
+			p.on_ground = false
+			p.gravity = JUMP_GRAVITY
+			p.float_timer = 20
+			p.state = "jump"
+		end
+	elseif p.state == "jump" then
+		if p.float_timer > 0 then
+			p.float_timer -= 1
+		end
+		if btn(0) then
+			p.target_dx = -DX_MAX_WALK
+			p.facing = "left"
+		end
+		if btn(1) then
+			p.target_dx = DX_MAX_WALK
+			p.facing = "right"
+		end
+		if btn(0) and btn(5) then
+			p.target_dx = -DX_MAX_RUN
+			p.facing = "left"
+		end
+		if btn(1) and btn(5) then
+			p.target_dx = DX_MAX_RUN
+			p.facing = "right"
+		end
+		if btn(4) then
+			p.gravity = JUMP_GRAVITY
+		end
+		if not btn(4) then
+			p.gravity = FALL_GRAVITY
+		end
+		if p.float_timer <= 0 then
+			p.gravity = FALL_GRAVITY
+		end
+		if btn() & 0x0f == 0 then
+			p.target_dx = 0
+		end
+		if btnp(4) then 
+			p.jump_buffer_timer = JUMP_BUFFER_TIME
+		end
+		if p.on_ground then
+			p.gravity = WORLD_GRAVITY
+			p.state = "idle"
+		end
 	end
 
 	-- X movement
@@ -158,17 +239,22 @@ function player_update(p)
 	--	pos += vel
 	if p.target_dx - p.dx ~= 0 then
 		local acc = sgn(p.target_dx - p.dx)
-		if (p.target_dx > 0 and p.dx < 0) or (p.target_dx < 0 and p.dx > 0) then
+		-- apply brakes if on ground
+		if p.on_ground and ((p.target_dx > 0 and p.dx < 0) or (p.target_dx < 0 and p.dx > 0)) then
 			acc *= 2
 		end
 		p.dx += acc -- vel += acc
 	end
 
+	move_x(p)
+	-- wrap around screen
+	if p.x < -7 then p.x = 127 end
+	if p.x > 127 then p.x = -7 end
+
 	--Y movement
 	--	only gravity??
-	p.dy += 1
+	p.dy += p.gravity
 
-	move_x(p)
 	move_y(p)
 end
 
@@ -211,8 +297,11 @@ function move_y(obj)
 				obj.y += sign
 				move_y -= sign
 			else
-				obj.dy = 0
-				obj.sub_y = 0
+				if obj.dy > 0 then
+					obj.on_ground = true
+					obj.dy = 0
+					obj.sub_y = 0
+				end
 				break
 			end
 		end
@@ -244,6 +333,7 @@ end
 
 --mouse
 function mouse_init()
+-- enable mouse
  poke(0x5f2d,1)
 end
 
