@@ -127,36 +127,43 @@ function player_update(p)
 	end
 
 	if p.state == "idle" then
+		--crouch
 		if btn(3) then
 			p.current_animation = "sitting"
 		end
+		--stand
 		if not btn(3) then
 			p.current_animation = "standing"
 		end
+		--left
 		if btn(0) then
 			p.target_dx = -DX_MAX_WALK
 			p.facing = "left"
 			p.current_animation = "walking"
 			p.state = "walk"
 		end
+		--right
 		if btn(1) then
 			p.target_dx = DX_MAX_WALK
 			p.facing = "right"
 			p.current_animation = "walking"
 			p.state = "walk"
 		end
+		--crawl left
 		if btn(0) and btn(3) then
 			p.target_dx = -DX_MAX_WALK / 4
 			p.facing = "left"
 			p.current_animation = "sitting"
 			p.state = "crawl"
 		end
+		--crawl right
 		if btn(1) and btn(3) then
 			p.target_dx = DX_MAX_WALK / 4
 			p.facing = "right"
 			p.current_animation = "sitting"
 			p.state = "crawl"
 		end
+		-- jump
 		if btnp(4) or p.jump_buffer_timer > 0 then
 			p.dy = -JUMP_SPEED
 			p.on_ground = false
@@ -166,9 +173,15 @@ function player_update(p)
 			p.state = "jump"
 		end
 	elseif p.state == "crawl" then
-		if p.dx == p.target_dx then
+		--moving at or below crawl speed
+		if (p.dx == p.target_dx) or (sgn(p.dx) < sgn(p.target_dx)) then
 			p.current_animation = "crawling"
 		end
+		--decelerating/sliding
+		if sgn(p.dx) > sgn(p.target_dx) then
+			p.current_animation = "sitting"
+		end
+		--stop crouching
 		if not btn(3) then
 			p.current_animation = "walking"
 			p.state = "walk"
@@ -177,6 +190,14 @@ function player_update(p)
 			p.target_dx = 0
 			p.current_animation = "sitting"
 			p.state = "idle"
+		end
+		if btnp(4) or p.jump_buffer_timer > 0 then
+			p.dy = -JUMP_SPEED
+			p.on_ground = false
+			p.gravity = JUMP_GRAVITY
+			p.float_timer = 20
+			p.current_animation = "jumping"
+			p.state = "jump"
 		end
 	elseif p.state == "walk" then
 		-- left
@@ -212,6 +233,10 @@ function player_update(p)
 		if btn(3) and btn(1) then
 			p.target_dx = DX_MAX_WALK / 4
 			p.facing = "right"
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
+		if btn(3) then
 			p.current_animation = "sitting"
 			p.state = "crawl"
 		end
