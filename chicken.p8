@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 --main
-DEBUG = false
+DEBUG = true
 SUB_PIXEL = 8
 CRAWL_SPEED = 5
 WALK_SPEED = 20
@@ -188,6 +188,10 @@ function player_update(p)
 			p.current_animation = "sitting"
 			p.state = "crawl"
 		end
+		if not p.on_ground then
+			p.gravity = FALL_GRAVITY
+			p.state = "fall"
+		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
 			p.dy = -JUMP_SPEED
 			p.on_ground = false
@@ -239,7 +243,10 @@ function player_update(p)
 		if btnp(4) then 
 			p.jump_buffer_timer = JUMP_BUFFER_TIME
 		end
-		if p.on_ground and (btnp(4) or p.jump_buffer_timer > 0) and btn(5) then
+		if not btn(5) then
+			p.target_speed = WALK_SPEED
+		end
+		if p.on_ground and (btnp(4) or (p.jump_buffer_timer > 0)) and btn(5) then
 			p.dy = -JUMP_SPEED
 			p.on_ground = false
 			p.gravity = JUMP_GRAVITY
