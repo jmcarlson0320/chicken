@@ -1,5 +1,6 @@
-TODO
-- decouple animations from state
-- press down to sit
+																																																																			TODO
+
+- fix carry speed on repeat jumps while running
 - build test map
-- 1-way platforms
+- tweak player hitbox size
+- 1-way platforms																																			

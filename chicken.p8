@@ -2,6 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 --main
+DEBUG = true
 SUB_PIXEL = 8
 CRAWL_SPEED = 5
 WALK_SPEED = 20
@@ -27,18 +28,6 @@ function _draw()
 	cls()
 	map()
 	player_draw(player)
-	print("subx:      "..player.sub_x)
-	print("x:         "..player.x)
-	print("dx:        "..player.dx)
-	print("target_dx: "..player.target_dx)
-	print("suby:      "..player.sub_y)
-	print("y:         "..player.y)
-	print("dy:        "..player.dy)
-	print("grav:      "..player.gravity)
-	print("flt_timer: "..player.float_timer)
-	print("jmp_b_time:"..player.jump_buffer_timer)
-	print("btn:       "..btn())
-	print("state:     "..player.state)
 end
 
 --test box
@@ -217,10 +206,10 @@ function player_update(p)
 		if p.float_timer > 0 then
 			p.float_timer -= 1
 		end
-		if not btn(4) then
+		if p.float_timer <= 0 then
 			p.gravity = FALL_GRAVITY
 		end
-		if p.float_timer <= 0 then
+		if not btn(4) then
 			p.gravity = FALL_GRAVITY
 		end
 		if btnp(4) then 
@@ -229,7 +218,13 @@ function player_update(p)
 		if not btn(5) then
 			p.target_speed = WALK_SPEED
 		end
-		if p.on_ground then
+		if p.on_ground and (btnp(4) or p.jump_buffer_timer > 0) and btn(5) then
+			p.dy = -JUMP_SPEED
+			p.on_ground = false
+			p.gravity = JUMP_GRAVITY
+			p.target_speed = RUN_SPEED
+			p.float_timer = 20
+		elseif p.on_ground then
 			p.gravity = WORLD_GRAVITY
 			p.current_animation = "walking"
 			p.state = "walk"
@@ -242,7 +237,7 @@ function player_update(p)
 	p.target_dx = move_dir * p.target_speed
 	if p.target_dx - p.dx ~= 0 then
 		local acc = sgn(p.target_dx - p.dx)
-		-- apply brakes if on ground
+		-- apply brakes
 		if (p.target_dx > 0 and p.dx < 0) or (p.target_dx < 0 and p.dx > 0) then
 			acc *= 2
 		end
@@ -257,7 +252,7 @@ function player_update(p)
 	if p.x > 127 then p.x = -7 end
 
 	--Y movement
-	--	only gravity??
+	--	only gravity
 	p.dy += p.gravity
 
 	move_y(p)
@@ -270,6 +265,20 @@ function player_draw(p)
 	local flip_x = p.facing == "left"
 	spr(sprite, p.x, p.y, 1, 1, flip_x)
 	anim.t += 1
+	if DEBUG then
+		print("subx:      "..p.sub_x)
+		print("x:         "..p.x)
+		print("dx:        "..p.dx)
+		print("target_dx: "..p.target_dx)
+		print("suby:      "..p.sub_y)
+		print("y:         "..p.y)
+		print("dy:        "..p.dy)
+		print("grav:      "..p.gravity)
+		print("flt_timer: "..p.float_timer)
+		print("jmp_b_time:"..p.jump_buffer_timer)
+		print("btn:       "..btn())
+		print("state:     "..p.state)
+	end
 end
 
 function move_x(obj)
