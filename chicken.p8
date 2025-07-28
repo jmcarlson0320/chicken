@@ -3,8 +3,9 @@ version 42
 __lua__
 --main
 SUB_PIXEL = 8
-DX_MAX_WALK = 20
-DX_MAX_RUN = 36
+CRAWL_SPEED = 5
+WALK_SPEED = 20
+RUN_SPEED = 36
 WORLD_GRAVITY = 1
 JUMP_GRAVITY = 1
 FALL_GRAVITY = 2
@@ -78,6 +79,7 @@ function create_player(x, y)
 		dx = 0,
 		dy = 0,
 		target_dx = 0,
+		target_speed = WALK_SPEED,
 		gravity = WORLD_GRAVITY,
 		float_timer = 0,
 		jump_buffer_timer = JUMP_BUFFER_TIME,
@@ -126,70 +128,26 @@ function player_update(p)
 		p.jump_buffer_timer -= 1
 	end
 
+	local move_dir = 0
+	if btn(0) then
+		move_dir -= 1
+		p.facing = "left"
+	end
+	if btn(1) then
+		move_dir += 1
+		p.facing = "right"
+	end
+
 	if p.state == "idle" then
-		--crouch
+		if move_dir ~= 0 then
+			p.target_speed = WALK_SPEED
+			p.current_animation = "walking"
+			p.state = "walk"
+		end
 		if btn(3) then
-			p.current_animation = "sitting"
-		end
-		--stand
-		if not btn(3) then
-			p.current_animation = "standing"
-		end
-		--left
-		if btn(0) then
-			p.target_dx = -DX_MAX_WALK
-			p.facing = "left"
-			p.current_animation = "walking"
-			p.state = "walk"
-		end
-		--right
-		if btn(1) then
-			p.target_dx = DX_MAX_WALK
-			p.facing = "right"
-			p.current_animation = "walking"
-			p.state = "walk"
-		end
-		--crawl left
-		if btn(0) and btn(3) then
-			p.target_dx = -DX_MAX_WALK / 4
-			p.facing = "left"
+			p.target_speed = CRAWL_SPEED
 			p.current_animation = "sitting"
 			p.state = "crawl"
-		end
-		--crawl right
-		if btn(1) and btn(3) then
-			p.target_dx = DX_MAX_WALK / 4
-			p.facing = "right"
-			p.current_animation = "sitting"
-			p.state = "crawl"
-		end
-		-- jump
-		if btnp(4) or p.jump_buffer_timer > 0 then
-			p.dy = -JUMP_SPEED
-			p.on_ground = false
-			p.gravity = JUMP_GRAVITY
-			p.float_timer = 20
-			p.current_animation = "jumping"
-			p.state = "jump"
-		end
-	elseif p.state == "crawl" then
-		--moving at or below crawl speed
-		if (p.dx == p.target_dx) or (sgn(p.dx) < sgn(p.target_dx)) then
-			p.current_animation = "crawling"
-		end
-		--decelerating/sliding
-		if sgn(p.dx) > sgn(p.target_dx) then
-			p.current_animation = "sitting"
-		end
-		--stop crouching
-		if not btn(3) then
-			p.current_animation = "walking"
-			p.state = "walk"
-		end
-		if btn() & 0x03 == 0 then
-			p.target_dx = 0
-			p.current_animation = "sitting"
-			p.state = "idle"
 		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
 			p.dy = -JUMP_SPEED
@@ -197,93 +155,43 @@ function player_update(p)
 			p.gravity = JUMP_GRAVITY
 			p.float_timer = 20
 			p.current_animation = "jumping"
+			p.target_speed = WALK_SPEED
 			p.state = "jump"
 		end
 	elseif p.state == "walk" then
-		-- left
-		if btn(0) then
-			p.target_dx = -DX_MAX_WALK
-			p.facing = "left"
-		end
-		-- right
-		if btn(1) then
-			p.target_dx = DX_MAX_WALK
-			p.facing = "right"
-		end
-		-- run left
-		if btn(5) and btn(0) then
-			p.target_dx = -DX_MAX_RUN
-			p.facing = "left"
-			p.current_animation = "running"
-			p.state = "run"
-		end
-		-- run right
-		if btn(5) and btn(1) then
-			p.target_dx = DX_MAX_RUN
-			p.facing = "right"
-			p.current_animation = "running"
-			p.state = "run"
-		end
-		if btn(3) and btn(0) then
-			p.target_dx = -DX_MAX_WALK / 4
-			p.facing = "left"
-			p.current_animation = "sitting"
-			p.state = "crawl"
-		end
-		if btn(3) and btn(1) then
-			p.target_dx = DX_MAX_WALK / 4
-			p.facing = "right"
-			p.current_animation = "sitting"
-			p.state = "crawl"
-		end
-		if btn(3) then
-			p.current_animation = "sitting"
-			p.state = "crawl"
-		end
-		-- coasting
-		if btn() & 0x03 == 0 then
-			p.target_dx = 0
-		end
-		-- not moving
-		if (btn() & 0x03 == 0) and (p.dx == 0) then
+		if (move_dir == 0) and (p.dx == 0) then
 			p.current_animation = "standing"
 			p.state = "idle"
 		end
+		if (move_dir ~= 0) and btn(5) then
+			p.target_speed = RUN_SPEED
+			p.current_animation = "running"
+			p.state = "run"
+		end
+		if btn(3) then
+			p.target_speed = CRAWL_SPEED
+			p.current_animation = "sitting"
+			p.state = "crawl"
+		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
 			p.dy = -JUMP_SPEED
 			p.on_ground = false
 			p.gravity = JUMP_GRAVITY
 			p.float_timer = 20
 			p.current_animation = "jumping"
+			p.target_speed = WALK_SPEED
 			p.state = "jump"
 		end
 	elseif p.state == "run" then
-		-- run left
-		if btn(0) then
-			p.target_dx = -DX_MAX_RUN
-			p.facing = "left"
-		end
-		-- run right
-		if btn(1) then
-			p.target_dx = DX_MAX_RUN
-			p.facing = "right"
-		end
-		if btn(3) and btn(0) then
-			p.target_dx = -DX_MAX_WALK / 4
-			p.facing = "left"
-			p.current_animation = "sitting"
-			p.state = "crawl"
-		end
-		if btn(3) and btn(1) then
-			p.target_dx = DX_MAX_WALK / 4
-			p.facing = "right"
-			p.current_animation = "sitting"
-			p.state = "crawl"
-		end
-		-- released run or direction
-		if (btn() & 0x03 == 0) or (not btn(5)) then
+		if (move_dir == 0) or (not btn(5)) then
+			p.target_speed = WALK_SPEED
 			p.current_animation = "walking"
 			p.state = "walk"
+		end
+		if btn(3) then
+			p.target_speed = CRAWL_SPEED
+			p.current_animation = "sitting"
+			p.state = "crawl"
 		end
 		if btnp(4) or p.jump_buffer_timer > 0 then
 			p.dy = -JUMP_SPEED
@@ -291,30 +199,23 @@ function player_update(p)
 			p.gravity = JUMP_GRAVITY
 			p.float_timer = 20
 			p.current_animation = "jumping"
+			p.target_speed = RUN_SPEED
 			p.state = "jump"
+		end
+	elseif p.state == "crawl" then
+		if move_dir ~= 0 and abs(p.dx) <= abs(p.target_dx) then
+			p.current_animation = "crawling"
+		else
+			p.current_animation = "sitting"
+		end
+		if not btn(3) then
+			p.target_speed = WALK_SPEED
+			p.current_animation = "walking"
+			p.state = "walk"
 		end
 	elseif p.state == "jump" then
 		if p.float_timer > 0 then
 			p.float_timer -= 1
-		end
-		if btn(0) then
-			p.target_dx = -DX_MAX_WALK
-			p.facing = "left"
-		end
-		if btn(1) then
-			p.target_dx = DX_MAX_WALK
-			p.facing = "right"
-		end
-		if btn(0) and btn(5) then
-			p.target_dx = -DX_MAX_RUN
-			p.facing = "left"
-		end
-		if btn(1) and btn(5) then
-			p.target_dx = DX_MAX_RUN
-			p.facing = "right"
-		end
-		if btn() & 0x03 == 0 then
-			p.target_dx = 0
 		end
 		if not btn(4) then
 			p.gravity = FALL_GRAVITY
@@ -325,20 +226,24 @@ function player_update(p)
 		if btnp(4) then 
 			p.jump_buffer_timer = JUMP_BUFFER_TIME
 		end
+		if not btn(5) then
+			p.target_speed = WALK_SPEED
+		end
 		if p.on_ground then
 			p.gravity = WORLD_GRAVITY
-			p.current_animation = "standing"
-			p.state = "idle"
+			p.current_animation = "walking"
+			p.state = "walk"
 		end
 	end
 
 	-- X movement
 	--	vel += acc
 	--	pos += vel
+	p.target_dx = move_dir * p.target_speed
 	if p.target_dx - p.dx ~= 0 then
 		local acc = sgn(p.target_dx - p.dx)
 		-- apply brakes if on ground
-		if p.on_ground and ((p.target_dx > 0 and p.dx < 0) or (p.target_dx < 0 and p.dx > 0)) then
+		if (p.target_dx > 0 and p.dx < 0) or (p.target_dx < 0 and p.dx > 0) then
 			acc *= 2
 		end
 		p.dx += acc -- vel += acc
@@ -346,6 +251,7 @@ function player_update(p)
 	end
 
 	move_x(p)
+
 	-- wrap around screen
 	if p.x < -7 then p.x = 127 end
 	if p.x > 127 then p.x = -7 end
@@ -399,6 +305,7 @@ function move_y(obj)
 				if obj.dy > 0 then
 					obj.on_ground = true
 					obj.dy = 0
+					obj.sub_y = 0
 				end
 				break
 			end
@@ -431,18 +338,18 @@ end
 
 --mouse
 function mouse_init()
--- enable mouse
- poke(0x5f2d,1)
+	-- enable mouse
+	poke(0x5f2d, 1)
 end
 
 function mouse_pos()
-	local x=stat(32)-1
-	local y=stat(33)-1
-	return x,y
+	local x = stat(32) - 1
+	local y = stat(33) - 1
+	return x, y
 end
 
 function mouse_button()
- return stat(34)
+	return stat(34)
 end
 __gfx__
 00000000007777777777777777777700007777777777777777777700777777777777777777777777000000000000000000000000000000000000000000000000
