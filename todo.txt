@@ -1,6 +1,6 @@
 																																																																			TODO
 
-- fix carry speed on repeat jumps while running
-- build test map
+- player falling state
+- function to test "on_ground"
 - tweak player hitbox size
 - 1-way platforms																																			
