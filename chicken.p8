@@ -207,6 +207,10 @@ function player_update(p)
 		else
 			p.current_animation = "sitting"
 		end
+		if not p.on_ground then
+			p.gravity = FALL_GRAVITY
+			p.state = "fall"
+		end
 		if not btn(3) then
 			p.target_speed = WALK_SPEED
 			p.current_animation = "walking"
