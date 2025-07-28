@@ -1,6 +1,4 @@
 																																																																			TODO
 
-- player falling state
-- function to test "on_ground"
 - tweak player hitbox size
 - 1-way platforms																																			

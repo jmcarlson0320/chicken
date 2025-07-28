@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 --main
-DEBUG = true
+DEBUG = false
 SUB_PIXEL = 8
 CRAWL_SPEED = 5
 WALK_SPEED = 20
@@ -74,6 +74,8 @@ function create_player(x, y)
 		jump_buffer_timer = JUMP_BUFFER_TIME,
 		on_ground = true,
 		state = "idle",
+		hitbox = {2, 1, 5, 7},
+		facing = "right",
 		current_animation = "standing",
 		animations = {
 			["standing"] = {
@@ -107,7 +109,6 @@ function create_player(x, y)
 				t = 0,
 			},
 		},
-		facing = "right",
 	}
 
 	return p
@@ -283,6 +284,7 @@ function player_draw(p)
 	spr(sprite, p.x, p.y, 1, 1, flip_x)
 	anim.t += 1
 	if DEBUG then
+		color(7)
 		print("subx:      "..p.sub_x)
 		print("x:         "..p.x)
 		print("dx:        "..p.dx)
@@ -296,6 +298,7 @@ function player_draw(p)
 		print("btn:       "..btn())
 		print("state:     "..p.state)
 		print("on_gnd:    "..tostr(p.on_ground))
+		draw_hitbox(p)
 	end
 end
 
@@ -306,7 +309,7 @@ function move_x(obj)
 		obj.sub_x -= move_x * SUB_PIXEL
 		local sign = sgn(move_x)
 		while move_x ~= 0 do
-			if not collide_map(obj.x + sign, obj.y) then
+			if not collide_map(obj.hitbox, obj.x + sign, obj.y) then
 				obj.x += sign
 				move_x -= sign
 			else
@@ -325,7 +328,7 @@ function move_y(obj)
 		obj.sub_y -= move_y * SUB_PIXEL
 		local sign = sgn(move_y)
 		while move_y ~= 0 do
-			if not collide_map(obj.x, obj.y + sign) then
+			if not collide_map(obj.hitbox, obj.x, obj.y + sign) then
 				obj.y += sign
 				move_y -= sign
 				obj.on_ground = false
@@ -341,6 +344,11 @@ function move_y(obj)
 	end
 end
 
+function draw_hitbox(e)
+	local h = e.hitbox
+	rect(h[1] + e.x, h[2] + e.y, h[3] + e.x, h[4] + e.y, 8)
+end
+
 function collide(a, b)
 	if a[1] > b[3] then return false end
 	if b[1] > a[3] then return false end
@@ -349,8 +357,8 @@ function collide(a, b)
 	return true
 end
 
-function collide_map(x, y)
-	local a = {x, y, x+7, y+7}
+function collide_map(hitbox, x, y)
+	local a = {x + hitbox[1], y + hitbox[2], x + hitbox[3], y + hitbox[4]}
 	for map_x = 0, 15 do
 		for map_y = 0, 15 do
 			if fget(mget(map_x, map_y)) == 1 then
