@@ -1,5 +1,5 @@
 --constants
-DEBUG = false
+DEBUG = true
 SUB_PIXEL = 8
 CRAWL_SPEED = 5
 WALK_SPEED = 20
@@ -10,10 +10,6 @@ FALL_GRAVITY = 3
 JUMP_SPEED = 20
 JUMP_BUFFER_TIME = 8
 
---tile flags
-TILE_FLAG_SOLID = 0
-TILE_FLAG_ONEWAY = 1
-
 --main
 function _init()
 	-- disable repeat buttons
@@ -21,7 +17,6 @@ function _init()
 
 	my_entities = {}
 	add(my_entities, create_player(64, 0))
-	add(my_entities, create_test_box(0, 0))
 end
 
 function _update()
@@ -103,8 +98,8 @@ function create_player(x, y)
 		gravity = WORLD_GRAVITY,
 		float_timer = 0,
 		jump_buffer_timer = JUMP_BUFFER_TIME,
-		on_ground = true,
-		state = "idle",
+		on_ground = false,
+		state = "fall",
 		hitbox = {2, 1, 5, 7},
 		facing = "right",
 		current_animation = "standing",
@@ -337,116 +332,6 @@ function player_draw(p)
 		print("on_gnd:    "..tostr(p.on_ground))
 		draw_hitbox(p)
 	end
-end
-
-function move_and_slide(obj)
-	move_x(obj, obj.dx)
-	move_y(obj, obj.dy)
-end
-
-function move_x(obj, dx)
-	obj.sub_x += dx
-	local move_x = obj.sub_x \ SUB_PIXEL
-	if move_x ~= 0 then
-		obj.sub_x -= move_x * SUB_PIXEL
-		local sign = sgn(move_x)
-		while move_x ~= 0 do
-			local collider = make_collider(obj.x + sign, obj.y, obj.hitbox)
-			local collision = collide_with_map(collider)
-			if collision then
-				if not fget(collision.tile, TILE_FLAG_ONEWAY) then
-					obj.dx = 0
-					obj.sub_x = 0
-					break
-				end
-			end
-			obj.x += sign
-			move_x -= sign
-		end
-
-	end
-end
-
-function move_y(obj, dy)
-	obj.sub_y += dy
-	local move_y = obj.sub_y \ SUB_PIXEL
-	if move_y ~= 0 then
-		obj.sub_y -= move_y * SUB_PIXEL
-		local sign = sgn(move_y)
-		while move_y ~= 0 do
-			local collider = make_collider(obj.x, obj.y + sign, obj.hitbox)
-			local collision = collide_with_map(collider)
-			if collision then
-				if fget(collision.tile, TILE_FLAG_ONEWAY) then -- one-way
-					local obj_bottom = obj.y + obj.hitbox[4]
-					local tile_top = collision.collider[2]
-					if dy > 0 and obj_bottom < tile_top then
-						obj.dy = 0
-						obj.sub_y = 0
-						obj.on_ground = true
-						break
-					end
-				elseif fget(collision.tile, TILE_FLAG_SOLID) then -- solid
-					obj.dy = 0
-					obj.sub_y = 0
-					if dy > 0 then
-						obj.on_ground = true
-					end
-					break
-				end
-			end
-			obj.y += sign
-			move_y -= sign
-			obj.on_ground = false
-		end
-	end
-end
-
-function collide_with_map(collider)
-	for x = 0, 15 do
-		for y = 0, 15 do
-			local tile = mget(x, y)
-			if fget(tile) ~= 0 then
-				local tile_collider = get_collider_from_tile(x, y)
-				if collide(collider, tile_collider) then
-					return {
-						tile = tile,
-						collider = tile_collider
-					}
-				end
-			end
-		end
-	end
-	return nil
-end
-
-function make_collider(x, y, hitbox)
-	return {
-		x + hitbox[1],
-		y + hitbox[2],
-		x + hitbox[3],
-		y + hitbox[4],
-	}
-end
-
-function get_collider_from_tile(map_x, map_y)
-	local x = map_x * 8
-	local y = map_y * 8
-	local hitbox = {0, 0, 7, 7}
-	return make_collider(x, y, hitbox)
-end
-
-function collide(a, b)
-	if a[1] > b[3] then return false end
-	if b[1] > a[3] then return false end
-	if a[2] > b[4] then return false end
-	if b[2] > a[4] then return false end
-	return true
-end
-
-function draw_hitbox(e)
-	local h = e.hitbox
-	rect(h[1] + e.x, h[2] + e.y, h[3] + e.x, h[4] + e.y, 8)
 end
 
 --mouse
