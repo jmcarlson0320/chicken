@@ -1,4 +1,4 @@
---main
+--constants
 DEBUG = false
 SUB_PIXEL = 8
 CRAWL_SPEED = 5
@@ -10,24 +10,48 @@ FALL_GRAVITY = 3
 JUMP_SPEED = 20
 JUMP_BUFFER_TIME = 8
 
+--tile flags
+TILE_FLAG_SOLID = 0
+TILE_FLAG_ONEWAY = 1
+
+--main
 function _init()
 	-- disable repeat buttons
 	poke(0x5f5c,255)
 
-	player = create_player(64, 0)
+	my_entities = {}
+	add(my_entities, create_player(64, 0))
+	add(my_entities, create_test_box(0, 0))
 end
 
 function _update()
-	player_update(player)
+	update_all(my_entities)
 end
 
 function _draw()
 	cls()
 	map()
-	player_draw(player)
+	draw_all(my_entities)
 end
 
---test box
+--systems
+function update_all(entities)
+	for e in all(entities) do
+		if e.update then
+			e:update()
+		end
+	end
+end
+
+function draw_all(entities)
+	for e in all(entities) do
+		if e.draw then
+			e:draw()
+		end
+	end
+end
+
+--entities
 function create_test_box(x, y)
 	return {
 		x = x,
@@ -39,6 +63,9 @@ function create_test_box(x, y)
 		hitbox = {0, 0, 7, 7},
 		collision_x = false,
 		collision_y = false,
+		dynamic = true,
+		update = update_box,
+		draw = draw_box,
 	}
 end
 
@@ -50,8 +77,7 @@ function update_box(b)
 	if btn(2) then b.dy = -1*SUB_PIXEL end
 	if btn(3) then b.dy = 1*SUB_PIXEL end
 
-	move_x(b, b.dx)
-	move_y(b, b.dy)
+	move_and_slide(b)
 end
 
 function draw_box(b)
@@ -71,6 +97,7 @@ function create_player(x, y)
 		sub_y = 0,
 		dx = 0,
 		dy = 0,
+		dynamic = true,
 		target_dx = 0,
 		target_speed = WALK_SPEED,
 		gravity = WORLD_GRAVITY,
@@ -113,6 +140,10 @@ function create_player(x, y)
 				t = 0,
 			},
 		},
+
+		-- standard entity functions
+		update = player_update,
+		draw = player_draw,
 	}
 end
 
@@ -265,7 +296,7 @@ function player_update(p)
 		end
 	end
 
-	-- X movement
+	-- X velocity
 	p.target_dx = move_dir * p.target_speed
 	if p.target_dx - p.dx ~= 0 then
 		local acc = sgn(p.target_dx - p.dx)
@@ -273,20 +304,13 @@ function player_update(p)
 		if (p.target_dx > 0 and p.dx < 0) or (p.target_dx < 0 and p.dx > 0) then
 			acc *= 2
 		end
-		p.dx += acc -- vel += acc
-
+		p.dx += acc
 	end
 
-	move_x(p, p.dx)
-
-	-- wrap around screen
-	if p.x < -7 then p.x = 127 end
-	if p.x > 127 then p.x = -7 end
-
-	--Y movement
+	-- Y velocity
 	p.dy += p.gravity
 
-	move_y(p, p.dy)
+	move_and_slide(p)
 end
 
 function player_draw(p)
@@ -315,6 +339,11 @@ function player_draw(p)
 	end
 end
 
+function move_and_slide(obj)
+	move_x(obj, obj.dx)
+	move_y(obj, obj.dy)
+end
+
 function move_x(obj, dx)
 	obj.sub_x += dx
 	local move_x = obj.sub_x \ SUB_PIXEL
@@ -325,7 +354,7 @@ function move_x(obj, dx)
 			local collider = make_collider(obj.x + sign, obj.y, obj.hitbox)
 			local collision = collide_with_map(collider)
 			if collision then
-				if not fget(collision.tile, 1) then
+				if not fget(collision.tile, TILE_FLAG_ONEWAY) then
 					obj.dx = 0
 					obj.sub_x = 0
 					break
@@ -348,7 +377,7 @@ function move_y(obj, dy)
 			local collider = make_collider(obj.x, obj.y + sign, obj.hitbox)
 			local collision = collide_with_map(collider)
 			if collision then
-				if fget(collision.tile, 1) then -- one-way
+				if fget(collision.tile, TILE_FLAG_ONEWAY) then -- one-way
 					local obj_bottom = obj.y + obj.hitbox[4]
 					local tile_top = collision.collider[2]
 					if dy > 0 and obj_bottom < tile_top then
@@ -357,7 +386,7 @@ function move_y(obj, dy)
 						obj.on_ground = true
 						break
 					end
-				elseif fget(collision.tile, 0) then -- solid
+				elseif fget(collision.tile, TILE_FLAG_SOLID) then -- solid
 					obj.dy = 0
 					obj.sub_y = 0
 					if dy > 0 then
@@ -377,7 +406,7 @@ function collide_with_map(collider)
 	for x = 0, 15 do
 		for y = 0, 15 do
 			local tile = mget(x, y)
-			if fget(tile) ~= 0 then -- solid
+			if fget(tile) ~= 0 then
 				local tile_collider = get_collider_from_tile(x, y)
 				if collide(collider, tile_collider) then
 					return {
@@ -389,15 +418,6 @@ function collide_with_map(collider)
 		end
 	end
 	return nil
-end
-
-function get_collider(obj)
-	return {
-		obj.x + obj.hitbox[1],
-		obj.y + obj.hitbox[2],
-		obj.x + obj.hitbox[3],
-		obj.y + obj.hitbox[4],
-	}
 end
 
 function make_collider(x, y, hitbox)
