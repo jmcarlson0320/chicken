@@ -328,13 +328,11 @@ function move_x(obj, dx)
 				if not fget(collision.tile, 1) then
 					obj.dx = 0
 					obj.sub_x = 0
-					obj.collision_x = true
 					break
 				end
 			end
 			obj.x += sign
 			move_x -= sign
-			obj.collision_x = false
 		end
 
 	end
@@ -359,10 +357,12 @@ function move_y(obj, dy)
 						obj.on_ground = true
 						break
 					end
-				else
+				elseif fget(collision.tile, 0) then -- solid
 					obj.dy = 0
 					obj.sub_y = 0
-					obj.on_ground = true
+					if dy > 0 then
+						obj.on_ground = true
+					end
 					break
 				end
 			end
