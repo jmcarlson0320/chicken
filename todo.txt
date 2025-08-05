@@ -1,0 +1,7 @@
+TODO
+- camera
+- level
+- interactable objects
+	- enemies
+	- collectibles
+	- trampolines

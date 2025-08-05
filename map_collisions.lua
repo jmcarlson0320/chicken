@@ -2,14 +2,19 @@ TILE_SOLID  = 0
 TILE_ONEWAY = 1
 
 function move_and_slide(obj)
-	move_x(obj, obj.dx, on_collide_x)
-	move_y(obj, obj.dy, on_collide_y)
+	if move_x(obj, obj.dx, on_collide_x) then
+		obj.against_wall = false
+	end
+	if move_y(obj, obj.dy, on_collide_y) then
+		obj.on_ground = false
+	end
 end
 
 function on_collide_x(obj, tile_info)
 	if fget(tile_info.tile, TILE_SOLID) then
 		obj.dx = 0
 		obj.sub_x = 0
+		obj.against_wall = true
 	elseif fget(tile_info.tile, TILE_ONEWAY) then
 		return "ignore_collision"
 	end
@@ -56,7 +61,9 @@ end
 function move_x(obj, dx, callback)
 	obj.sub_x += dx
 	local move_x = obj.sub_x \ 8
+	local obj_moved = false
 	if move_x ~= 0 then
+		obj_moved = true
 		obj.sub_x -= move_x * 8
 		local sign = sgn(move_x)
 		while move_x ~= 0 do
@@ -66,7 +73,7 @@ function move_x(obj, dx, callback)
 				if callback then
 					local result = callback(obj, collision)
 					if result ~= "ignore_collision" then
-						break
+						return false
 					end
 				end
 			end
@@ -74,12 +81,15 @@ function move_x(obj, dx, callback)
 			move_x -= sign
 		end
 	end
+	return obj_moved
 end
 
 function move_y(obj, dy, callback)
 	obj.sub_y += dy
 	local move_y = obj.sub_y \ 8
+	local obj_moved = false
 	if move_y ~= 0 then
+		obj_moved = true
 		obj.sub_y -= move_y * 8
 		local sign = sgn(move_y)
 		while move_y ~= 0 do
@@ -89,20 +99,25 @@ function move_y(obj, dy, callback)
 				if callback then
 					local result = callback(obj, collision)
 					if result ~= "ignore_collision" then
-						break
+						return false
 					end
 				end
 			end
 			obj.y += sign
 			move_y -= sign
-			obj.on_ground = false
 		end
 	end
+	return obj_moved
 end
 
 function collide_with_map(collider)
-	for x = 0, 15 do
-		for y = 0, 15 do
+	-- 3x3 grid of tiles around collider
+	local x_min = collider[1] \ 8 - 1
+	local x_max = collider[1] \ 8 + 1
+	local y_min = collider[2] \ 8 - 1
+	local y_max = collider[2] \ 8 + 1
+	for x = x_min, x_max do
+		for y = y_min, y_max do
 			local tile = mget(x, y)
 			if fget(tile) ~= 0 then
 				local hitbox = {0, 0, 7, 7}

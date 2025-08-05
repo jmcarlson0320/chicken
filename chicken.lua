@@ -1,5 +1,5 @@
 --constants
-DEBUG = true
+DEBUG = false
 SUB_PIXEL = 8
 CRAWL_SPEED = 5
 WALK_SPEED = 20
@@ -17,19 +17,36 @@ function _init()
 
 	my_entities = {}
 	add(my_entities, create_player(64, 0))
+
+	-- camera
+	cam = {
+		x = 0,
+		y = 0,
+	}
 end
 
 function _update()
 	update_all(my_entities)
+	update_camera(cam, find(my_entities, "chicken"))
 end
 
 function _draw()
 	cls()
+	camera(cam.x, cam.y)
 	map()
 	draw_all(my_entities)
 end
 
 --systems
+function find(entities, name)
+	for e in all(entities) do
+		if e.name == name then
+			return e
+		end
+	end
+	return nil
+end
+
 function update_all(entities)
 	for e in all(entities) do
 		if e.update then
@@ -44,6 +61,13 @@ function draw_all(entities)
 			e:draw()
 		end
 	end
+end
+
+function update_camera(camera, target)
+	local target_x = target.x - 64
+	local target_y = target.y - 64
+	camera.x += (target_x - camera.x) * 0.1
+	camera.y += (target_y - camera.y) * 0.1
 end
 
 --entities
@@ -86,6 +110,7 @@ end
 
 function create_player(x, y)
 	return {
+		name = "chicken",
 		x = x,
 		y = y,
 		sub_x = 0,
@@ -98,8 +123,9 @@ function create_player(x, y)
 		gravity = WORLD_GRAVITY,
 		float_timer = 0,
 		jump_buffer_timer = JUMP_BUFFER_TIME,
-		on_ground = false,
-		state = "fall",
+		on_ground = true,
+		against_wall = false,
+		state = "idle",
 		hitbox = {2, 1, 5, 7},
 		facing = "right",
 		current_animation = "standing",
@@ -330,6 +356,7 @@ function player_draw(p)
 		print("btn:       "..btn())
 		print("state:     "..p.state)
 		print("on_gnd:    "..tostr(p.on_ground))
+		print("touch_wall:"..tostr(p.against_wall))
 		draw_hitbox(p)
 	end
 end
