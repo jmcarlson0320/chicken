@@ -1,7 +1,3 @@
 TODO
-- camera
-- level
-- interactable objects
-	- enemies
-	- collectibles
-	- trampolines
+- item pickup
+	-pickup and spawn effects

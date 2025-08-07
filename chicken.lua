@@ -16,6 +16,7 @@ function _init()
 	poke(0x5f5c,255)
 
 	my_entities = {}
+	spawn_level_entities(my_entities)
 	add(my_entities, create_player(64, 0))
 
 	-- camera
@@ -27,6 +28,7 @@ end
 
 function _update()
 	update_all(my_entities)
+	collide_one_to_many(find(my_entities, "chicken"), my_entities)
 	update_camera(cam, find(my_entities, "chicken"))
 end
 
@@ -45,6 +47,19 @@ function find(entities, name)
 		end
 	end
 	return nil
+end
+
+function spawn_level_entities(entities)
+	for x = 0, 128 do
+		for y = 0, 128 do
+			local tile = mget(x, y)
+			if tile == 8 then
+				local w = create_waypoint(x * 8, y * 8)
+				add(entities, w)
+				mset(x, y, 0)
+			end
+		end
+	end
 end
 
 function update_all(entities)
@@ -67,10 +82,41 @@ function update_camera(camera, target)
 	local target_x = target.x - 64
 	local target_y = target.y - 64
 	camera.x += (target_x - camera.x) * 0.1
-	camera.y += (target_y - camera.y) * 0.1
+	--camera.y += (target_y - camera.y) * 0.1
+end
+
+
+function draw_animated_entity(entity)
+	local anim = entity.animations[entity.current_animation]
+	local index = flr(anim.t / anim.rate % #anim.frames) + 1
+	local sprite = anim.frames[index]
+	local flip_x = false
+	if entity.facing then
+		flip_x = entity.facing == "left"
+	end
+	spr(sprite, entity.x, entity.y, 1, 1, flip_x)
+	anim.t += 1
+end
+
+function collide_one_to_many(e, entities)
+	for other in all(entities) do
+		if e ~= other then
+			local a = make_collider(e.x, e.y, e.hitbox)
+			local b = make_collider(other.x, other.y, other.hitbox)
+			if collide(a, b) then
+				if e.on_collide then
+					e:on_collide(other)
+				end
+				if other.on_collide then
+					other:on_collide(e)
+				end
+			end
+		end
+	end
 end
 
 --entities
+--test box
 function create_test_box(x, y)
 	return {
 		x = x,
@@ -108,6 +154,7 @@ function draw_box(b)
 	rect(b.x, b.y, b.x+7, b.y+7, 8)
 end
 
+--player
 function create_player(x, y)
 	return {
 		name = "chicken",
@@ -125,6 +172,7 @@ function create_player(x, y)
 		jump_buffer_timer = JUMP_BUFFER_TIME,
 		on_ground = true,
 		against_wall = false,
+		score = 0,
 		state = "idle",
 		hitbox = {2, 1, 5, 7},
 		facing = "right",
@@ -335,12 +383,8 @@ function player_update(p)
 end
 
 function player_draw(p)
-	local anim = p.animations[p.current_animation]
-	local index = flr(anim.t / anim.rate % #anim.frames) + 1
-	local sprite = anim.frames[index]
-	local flip_x = p.facing == "left"
-	spr(sprite, p.x, p.y, 1, 1, flip_x)
-	anim.t += 1
+	draw_animated_entity(p)
+	print(p.score)
 	if DEBUG then
 		color(7)
 		print("subx:      "..p.sub_x)
@@ -359,6 +403,47 @@ function player_draw(p)
 		print("touch_wall:"..tostr(p.against_wall))
 		draw_hitbox(p)
 	end
+end
+
+--waypoint
+function create_waypoint(x, y)
+	return {
+		name = "waypoint",
+		x = x,
+		y = y,
+		dynamic = false,
+		hitbox = {0, 0, 7, 7},
+		current_animation = "idle",
+		animations = {
+			["idle"] = {
+				frames = {8, 9, 10, 11, 12, 13, 14},
+				rate = 2,
+				t = 0,
+			},
+			["disintigrate"] = {
+				frames = {24,25,26,27},
+				rate = 2,
+				t = 0,
+			},
+		},
+
+		draw = waypoint_draw,
+		on_collide = waypoint_collide,
+	}
+end
+
+function waypoint_update(w)
+end
+
+function waypoint_draw(w)
+	draw_animated_entity(w)
+end
+
+function waypoint_collide(w, other)
+	if other.name == "chicken" then
+		other.score += 1
+	end
+	del(my_entities, w)
 end
 
 --mouse
