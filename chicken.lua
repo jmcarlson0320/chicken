@@ -27,6 +27,7 @@ function _init()
 end
 
 function _update()
+	update_particles()
 	update_all(my_entities)
 	collide_one_to_many(find(my_entities, "chicken"), my_entities)
 	update_camera(cam, find(my_entities, "chicken"))
@@ -37,6 +38,7 @@ function _draw()
 	camera(cam.x, cam.y)
 	map()
 	draw_all(my_entities)
+	draw_particles()
 end
 
 --systems
@@ -115,6 +117,85 @@ function collide_one_to_many(e, entities)
 	end
 end
 
+--particles
+
+
+function rnd_range(min, max)
+	return min + rnd() * (max - min)
+end
+
+particles = {}
+
+function make_particles(x, y, type)
+	local p = {
+		x = x,
+		y = y,
+		type = type,
+		age = 0,
+	}
+	if type == "smoke" then
+		local p = {
+			type = "circles",
+			x = x,
+			y = y,
+			dx = rnd(0.5) - 0.25,
+			dy = rnd(0.5) - 0.25,
+			ddy = 0,
+			lifetime = rnd(5) + 5,
+			age = 0,
+			type = "circles",
+			rad_tbl = { 1.5 },
+			col_tbl = { 12 },
+		}
+		add(particles, p)
+	elseif type == "sparks" then
+		local p = {
+			x = x,
+			y = y,
+			dx = 0,
+			dy = 0,
+			ddy = 0,
+			lifetime = 20,
+			age = 0,
+			type = "sprites",
+			spr_tbl = {24, 25, 26, 27, 28, 29, 30, 31},
+		}
+		add(particles, p)
+	end
+end
+
+function update_particles()
+	for p in all(particles) do
+		p.age += 1
+		p.x += p.dx
+		p.y += p.dy
+		p.dy += p.ddy
+
+		if p.age >= p.lifetime then
+			del(particles, p)
+			return
+		end
+	end
+end
+
+function draw_particles()
+	for p in all(particles) do
+		if p.type == "circles" then
+			local n_col = #p.col_tbl
+			local n_rad = #p.rad_tbl
+			local c = flr(p.age / p.lifetime * n_col) + 1
+			local r = flr(p.age / p.lifetime * n_rad) + 1
+			circfill(p.x, p.y, p.rad_tbl[r], p.col_tbl[c])
+		elseif p.type == "sprites" then
+			local n_spr = #p.spr_tbl
+			local s = flr(p.age / p.lifetime * n_spr) + 1
+			spr(p.spr_tbl[s], p.x, p.y)
+			print(s)
+		end
+			
+	end
+end
+
 --entities
 --test box
 function create_test_box(x, y)
@@ -175,6 +256,7 @@ function create_player(x, y)
 		score = 0,
 		state = "idle",
 		hitbox = {2, 1, 5, 7},
+		dust_timer = 0,
 		facing = "right",
 		current_animation = "standing",
 		animations = {
@@ -219,6 +301,10 @@ end
 function player_update(p)
 	if p.jump_buffer_timer > 0 then
 		p.jump_buffer_timer -= 1
+	end
+
+	if p.dust_timer > 0 then
+		p.dust_timer -= 1
 	end
 
 	local move_dir = 0
@@ -344,6 +430,9 @@ function player_update(p)
 			p.gravity = WORLD_GRAVITY
 			p.current_animation = "walking"
 			p.state = "walk"
+			for i=1,3 do
+				make_particles(p.x + 3, p.y + 7, "smoke")
+			end
 		end
 	elseif p.state == "fall" then
 		if btnp(4) then 
@@ -362,6 +451,9 @@ function player_update(p)
 			p.gravity = WORLD_GRAVITY
 			p.current_animation = "walking"
 			p.state = "walk"
+			for i=1,3 do
+				make_particles(p.x + 3, p.y + 7, "smoke")
+			end
 		end
 	end
 
@@ -442,8 +534,9 @@ end
 function waypoint_collide(w, other)
 	if other.name == "chicken" then
 		other.score += 1
+		make_particles(w.x, w.y, "sparks")
+		del(my_entities, w)
 	end
-	del(my_entities, w)
 end
 
 --mouse
